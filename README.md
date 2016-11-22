@@ -1,8 +1,8 @@
-n2: A command-line tool for searching and indexing notes.
-
+n2: A command-line tool for searching and indexing notes
+========================================================
 
 Install
-=======
+-------
 
 Install the scripts via pip.
 
@@ -16,5 +16,11 @@ Add config file to your home directory.
 $ cp example-notesrc ~/.notesrc
 ```
 
-Edit `~/.notesrc`
+Edit `~/.notesrc`. Be sure to specify a valid path for here `n2` can store its
+indexes.
+
+```
+[config]
+index = ~/projects/notes/.index
+```
 
