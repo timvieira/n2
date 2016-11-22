@@ -12,7 +12,7 @@ $ pip install -e .
 
 Add config file to your home directory.
 
-``bash
+```bash
 $ cp example-notesrc ~/.notesrc
 ```
 
