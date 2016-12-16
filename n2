@@ -309,8 +309,8 @@ def main():
 
     p = ArgumentParser()
     p.add_argument('query', nargs='*')
-    p.add_argument('--rebuild', action='store_true',
-                   help='Rebuild indexed from scratch.')
+    p.add_argument('--build', action='store_true',
+                   help='Build indexed from scratch.')
     p.add_argument('--update', action='store_true',
                    help='Search for changes and update index.')
     p.add_argument('--files', action='store_true',
@@ -323,14 +323,21 @@ def main():
     if args.a:
         args.limit = None
 
-    if args.files:
-        dump_files()
-        return
-
-    if args.rebuild:
+    if args.build:
         create()
         dump_files()
         update()
+        return
+
+    elif not DIRECTORY.exists():
+        print 'Index does not (yet) exist, run the following command.'
+        print
+        print '  $ n2 --build'
+        print
+        exit(1)
+
+    if args.files:
+        dump_files()
         return
 
     if args.update:

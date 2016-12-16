@@ -24,3 +24,8 @@ indexes.
 index = ~/projects/notes/.index
 ```
 
+Now, run the following command to build in the search index.
+
+```
+$ n2 --build
+```
