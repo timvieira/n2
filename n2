@@ -292,8 +292,12 @@ def extract_title(d, x):
         title = lines[0]
         for line in lines:
             line = line.strip()
+            if line.startswith('#!') or line.startswith('# -*-'): # skip shebang and encoding line
+                continue
             # remove org-mode markup or python doc string.
             line = re.sub('^(#\+title:|"""|#|\*)', '', line)
+            line = re.sub('^(title:)', '', line)
+            line = line.strip()
             if line:
                 if not line.startswith('#!') and not line.startswith('# -*-'): # skip shebang and encoding line
                     title = line
