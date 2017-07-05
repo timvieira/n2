@@ -320,11 +320,11 @@ def main():
     p.add_argument('--files', action='store_true',
                    help='Cache tracked files.')
     p.add_argument('--limit', type=int, default=5)
-    p.add_argument('-a', action='store_true')
+    p.add_argument('-a', '--all', action='store_true')
 
     args = p.parse_args()
 
-    if args.a:
+    if args.all:
         args.limit = None
 
     if args.build:
