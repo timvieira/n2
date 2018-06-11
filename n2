@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Search my notes!
 
 Finds notes living all over your hard drive and build an index over them for
@@ -34,7 +34,7 @@ TODO:
 import re, os, codecs
 from configparser import ConfigParser
 from datetime import datetime
-from path import path
+from path import Path
 
 from whoosh.analysis import KeywordAnalyzer, STOP_WORDS
 from whoosh.index import create_in, open_dir
@@ -49,10 +49,10 @@ from arsenal.fsutils import files
 
 
 config = ConfigParser(allow_no_value=True)
-config.optionxform = unicode       # don't lower case keys
-config.read(path('~/.notesrc').expand())
+config.optionxform = str       # don't lower case keys
+config.read(Path('~/.notesrc').expand())
 
-DIRECTORY = path(config.get('config', 'index')).expand()
+DIRECTORY = Path(config.get('config', 'index')).expand()
 TRACKED = DIRECTORY / 'files'
 NAME = 'index'
 
@@ -71,17 +71,17 @@ def remove_stopwords(x):
 
 def dump_files():
     "Write tracked files to index directory."
-    with file(TRACKED, 'wb') as f:
+    with open(TRACKED, 'w') as f:
         for x in unique(find_notes()):
-            print >> f, x
-    print yellow % 'wrote tracked files to %s' % TRACKED
+            print(x, file=f)
+    print(yellow % 'wrote tracked files to %s' % TRACKED)
 
 
 def find_notes():
     "Search for notes given the settings in config."
     for d, _ in sorted(config.items('sources')):
-        for x in sorted(files(path(d).expand())):
-            x = path(x)
+        for x in sorted(files(Path(d).expand())):
+            x = Path(x)
             if not any(re.match(p, x) for p, _ in config.items('include')):
                 continue
             if any(exclude(p, x) for p, _ in config.items('exclude')):
@@ -101,7 +101,7 @@ def exclude(p, x):
 def org_export_tex(f):
     "Is `f` a path to an org-mode tex export files?"
     # a tex file with an org file next to it.
-    return f.endswith('.tex') and path(f[:-3] + 'org').exists()
+    return f.endswith('.tex') and Path(f[:-3] + 'org').exists()
 
 
 # catalog of magic filters
@@ -113,7 +113,7 @@ magic_filters = {
 
 def create():
     "Create a new Whoosh index."
-    print yellow % 'creating new index in directory %s' % DIRECTORY
+    print(yellow % 'creating new index in directory %s' % DIRECTORY)
     os.system('rm -rf %s' % DIRECTORY)
     os.mkdir(DIRECTORY)
     schema = Schema(path = ID(stored=True, unique=True),
@@ -129,12 +129,12 @@ def drop():
     "Drop existing index."
     assert DIRECTORY.exists()
     os.system('rm -rf ' + DIRECTORY)
-    print 'dropped index', DIRECTORY
+    print('dropped index', DIRECTORY)
 
 
 def mtime_if_exists(x):
     "Grab mtime for a file that exists."
-    x = path(x)
+    x = Path(x)
     return datetime.fromtimestamp(x.mtime) if x.exists() else datetime.fromtimestamp(0)
 
 
@@ -147,7 +147,6 @@ def ls(limit=None):
 
 
 def _search(q, limit=None):
-    q = unicode(q.decode('utf8'))
     ix = open_dir(DIRECTORY, NAME)
     w = {'title': 4, 'tags': 3, 'path': 2, 'filename': 2, 'content': 1}
     p = MultifieldParser(fieldnames = w,
@@ -162,20 +161,20 @@ def _search(q, limit=None):
         for hit in hits:
             yield hit
 
-        print yellow % 'Related terms'
+        print(yellow % 'Related terms')
         # print related terms as suggested expansions of the query, but leave it
         # to the user to make use of them
         for k, s in  searcher.key_terms(docnums=[h.docnum for h in hits],
                                         fieldname='content',
                                         numterms=10):
-            print '%.1f %s' % (s, k)
+            print('%.1f %s' % (s, k))
 
 
 def search(q, **kw):
     hits = _search(q, **kw) if q else ls(**kw)
-    print
+    print()
     for hit in hits:
-        mt = mtime_if_exists(path(hit['path']))
+        mt = mtime_if_exists(Path(hit['path']))
         if mt is None:
             mt = hit['mtime']
             mtime_msg = 'no longer exists!'
@@ -183,11 +182,11 @@ def search(q, **kw):
         else:
             mtime_msg = datestr(mt)
             mtime_msg = magenta % '(%s)' % mtime_msg
-        print hit['title'].encode('utf-8'), mtime_msg
-        print cyan % 'file://%s' % hit['path']
+        print(hit['title'], mtime_msg)
+        print(cyan % 'file://%s' % hit['path'])
         if hit['tags']:
-            print magenta % ' '.join(hit['tags'])
-        print
+            print(magenta % ' '.join(hit['tags']))
+        print()
 
 
 def update():
@@ -203,18 +202,18 @@ def update():
     with ix.writer() as w, ix.searcher() as searcher:
 
         fs = set(find_notes())
-        fs = filter(os.path.exists, fs)
+        fs = list(filter(os.path.exists, fs))
 
-        for d in sorted(map(path, fs), key=lambda x: x.mtime, reverse=True):
+        for d in sorted(map(Path, fs), key=lambda x: x.mtime, reverse=True):
 
             # lookup document mtime in the index; don't add or extract info if
             # you don't need it.
-            result = searcher.find('path', unicode(d))
+            result = searcher.find('path', str(d))
 
             mtime = datetime.fromtimestamp(d.mtime)
 
             if not result:
-                print '[INFO] new document:', d
+                print('[INFO] new document:', d)
 
             else:
                 assert len(result) == 1, 'should be unique.'
@@ -224,7 +223,7 @@ def update():
                     # after this one are older, and thus we're done.
                     return
 
-                print '[INFO] update:', d
+                print('[INFO] update:', d)
 
             content = ''
             if extract_content(d):
@@ -232,7 +231,7 @@ def update():
                     content = f.read()
 
             if not content.strip():
-                print '[INFO] document empty.'
+                print('[INFO] document empty.')
                 continue
 
             title = extract_title(d, content)
@@ -243,7 +242,7 @@ def update():
             if tags:
                 tags = [x.strip() for x in tags[0].split()]
 
-            w.update_document(path = unicode(d),
+            w.update_document(path = str(d),
                               title = title,
                               content = content,
                               mtime = mtime,
@@ -334,10 +333,10 @@ def main():
         return
 
     elif not DIRECTORY.exists():
-        print 'Index does not (yet) exist, run the following command.'
-        print
-        print '  $ n2 --build'
-        print
+        print('Index does not (yet) exist, run the following command.')
+        print()
+        print('  $ n2 --build')
+        print()
         exit(1)
 
     if args.files:
@@ -350,7 +349,7 @@ def main():
         return
 
     if args.limit:
-        print yellow % 'Showing top %s results' % args.limit
+        print(yellow % 'Showing top %s results' % args.limit)
 
     q = ' '.join(args.query)
     search(q, limit=args.limit)
