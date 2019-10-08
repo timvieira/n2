@@ -35,6 +35,7 @@ import re, os, codecs
 from configparser import ConfigParser
 from datetime import datetime
 from path import Path
+from subprocess import Popen, PIPE
 
 from whoosh.analysis import KeywordAnalyzer, STOP_WORDS
 from whoosh.index import create_in, open_dir
@@ -42,7 +43,7 @@ from whoosh.fields import Schema, TEXT, ID, DATETIME
 from whoosh.qparser import MultifieldParser
 #from whoosh.query import FuzzyTerm
 
-from arsenal.terminal import red, cyan, yellow, magenta
+from arsenal.terminal import colors
 from arsenal.iterextras import unique, take
 from arsenal.humanreadable import datestr
 from arsenal.fsutils import files
@@ -57,10 +58,24 @@ TRACKED = DIRECTORY / 'files'
 NAME = 'index'
 
 
-def extract_content(f):
+def extract_content(d):
     "What file extensions should we extract content from?"
-    return f.ext in {'', '.md', '.py', '.pyx', '.html', '.bib',
-                     '.pxd', '.org', '.tex', '.rst'}
+
+    if d.endswith('.ipynb'):
+
+        return Popen([
+            'jupyter', 'nbconvert', '--to', 'markdown', '--stdout',
+            str(d)
+        ], stdout=PIPE).communicate()[0].decode('utf-8')
+
+    elif d.ext in {'', '.md', '.py', '.pyx', '.html', '.bib',
+                   '.pxd', '.org', '.tex', '.rst'}:
+
+        with codecs.open(d, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+
+    else:
+        return ''
 
 
 # TODO: there is probably a better way to do this via whoosh's query parser.
@@ -74,19 +89,20 @@ def dump_files():
     with open(TRACKED, 'w') as f:
         for x in unique(find_notes()):
             print(x, file=f)
-    print(yellow % 'wrote tracked files to %s' % TRACKED)
+    print(colors.yellow % 'wrote tracked files to %s' % TRACKED)
 
 
 def find_notes():
     "Search for notes given the settings in config."
-    for d, _ in sorted(config.items('sources')):
-        for x in sorted(files(Path(d).expand())):
-            x = Path(x)
-            if not any(re.match(p, x) for p, _ in config.items('include')):
-                continue
-            if any(exclude(p, x) for p, _ in config.items('exclude')):
-                continue
-            yield x
+    for dd, _ in sorted(config.items('sources')):
+        for d in Path(dd).expand().glob(''):
+            for x in sorted(files(d)):
+                x = Path(x)
+                if not any(re.match(p, x) for p, _ in config.items('include')):
+                    continue
+                if any(exclude(p, x) for p, _ in config.items('exclude')):
+                    continue
+                yield x
 
 
 def exclude(p, x):
@@ -113,7 +129,7 @@ magic_filters = {
 
 def create():
     "Create a new Whoosh index."
-    print(yellow % 'creating new index in directory %s' % DIRECTORY)
+    print(colors.yellow % 'creating new index in directory %s' % DIRECTORY)
     os.system('rm -rf %s' % DIRECTORY)
     os.mkdir(DIRECTORY)
     schema = Schema(path = ID(stored=True, unique=True),
@@ -161,7 +177,7 @@ def _search(q, limit=None):
         for hit in hits:
             yield hit
 
-        print(yellow % 'Related terms')
+        print(colors.yellow % 'Related terms')
         # print related terms as suggested expansions of the query, but leave it
         # to the user to make use of them
         for k, s in  searcher.key_terms(docnums=[h.docnum for h in hits],
@@ -178,14 +194,14 @@ def search(q, **kw):
         if mt is None:
             mt = hit['mtime']
             mtime_msg = 'no longer exists!'
-            mtime_msg = red % '(%s)' % mtime_msg
+            mtime_msg = colors.red % '(%s)' % mtime_msg
         else:
             mtime_msg = datestr(mt)
-            mtime_msg = magenta % '(%s)' % mtime_msg
+            mtime_msg = colors.magenta % '(%s)' % mtime_msg
         print(hit['title'], mtime_msg)
-        print(cyan % 'file://%s' % hit['path'])
+        print(colors.cyan % 'file://%s' % hit['path'])
         if hit['tags']:
-            print(magenta % ' '.join(hit['tags']))
+            print(colors.magenta % ' '.join(hit['tags']))
         print()
 
 
@@ -225,13 +241,10 @@ def update():
 
                 print('[INFO] update:', d)
 
-            content = ''
-            if extract_content(d):
-                with codecs.open(d, 'r', encoding='utf8', errors='ignore') as f:
-                    content = f.read()
+            content = extract_content(d)
 
             if not content.strip():
-                print('[INFO] document empty.')
+                print('[INFO] document empty.', d)
                 continue
 
             title = extract_title(d, content)
@@ -349,7 +362,7 @@ def main():
         return
 
     if args.limit:
-        print(yellow % 'Showing top %s results' % args.limit)
+        print(colors.yellow % 'Showing top %s results' % args.limit)
 
     q = ' '.join(args.query)
     search(q, limit=args.limit)

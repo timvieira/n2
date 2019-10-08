@@ -6,7 +6,7 @@ setup(name='n2',
       version='1.0',
       install_requires=[
           'arsenal',
-          'path.py',
+#          'path.py',
           'whoosh',
       ],
       dependency_links=[
